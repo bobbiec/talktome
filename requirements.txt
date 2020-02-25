@@ -2,9 +2,5 @@ font-hanken-grotesk==0.0.2
 font-source-sans-pro==0.0.1
 font-source-serif-pro==0.0.1
 inky==0.0.5
-numpy==1.18.1
 Pillow==7.0.0
-pkg-resources==0.0.0
-RPi.GPIO==0.7.0
-smbus2==0.3.0
-spidev==3.4
+Flask==1.1.1
