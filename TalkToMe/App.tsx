@@ -20,6 +20,7 @@ import {
   ImageBackground,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import {SLACK_BOT_TOKEN, SLACK_USER_ID} from './secrets';
 
 enum Status {
   Custom = 'Custom',
@@ -41,8 +42,8 @@ const statusColors = {
   [Status.Custom]: 'rgba(129, 127, 224, 0.3)',
   [Status.Available]: 'rgba(98, 176, 115, 0.3)',
   [Status.Busy]: 'rgba(253, 99, 107, 0.3)',
-  [Status.InMeeting]: 'rgba(44, 152, 240, 0.3)',
-  [Status.WorkingRemotely]: 'rgba(255, 175, 21, 0.3)',
+  [Status.InMeeting]: 'rgba(255, 175, 21, 0.3)',
+  [Status.WorkingRemotely]: 'rgba(44, 152, 240, 0.3)',
 };
 
 interface LGBIProps {
@@ -70,6 +71,7 @@ function App(): React.ReactFragment {
   const [selected, setSelected] = useState(Status.Available);
   const [customText, setCustomText] = useState('');
   const [syncWithSlack, setSyncWithSlack] = useState(false);
+  const [debugText, setDebugText] = useState('Debug text');
 
   const highlightIfSelected = (curr: Status) => {
     let style = styles.statusButton;
@@ -79,10 +81,27 @@ function App(): React.ReactFragment {
     return style;
   };
 
+  const fetchSlackStatus = async () => {
+    try {
+      let response = await fetch(
+        `https://slack.com/api/users.profile.get` +
+          `?token=${SLACK_BOT_TOKEN}` +
+          `&user=${SLACK_USER_ID}`,
+      );
+      let responseJson = await response.json();
+      setDebugText(responseJson.profile.status_text);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
+        <TouchableOpacity onPress={async () => fetchSlackStatus()}>
+          <Text style={{padding: 24}}>{debugText || 'debug text (none)'}</Text>
+        </TouchableOpacity>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}>
