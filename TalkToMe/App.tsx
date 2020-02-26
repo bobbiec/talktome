@@ -72,6 +72,7 @@ function App(): React.ReactFragment {
   const [customText, setCustomText] = useState('');
   const [syncWithSlack, setSyncWithSlack] = useState(false);
   const [debugText, setDebugText] = useState('Debug text');
+  const [slackPoller, setSlackPoller] = useState(null);
 
   const highlightIfSelected = (curr: Status) => {
     let style = styles.statusButton;
@@ -81,27 +82,29 @@ function App(): React.ReactFragment {
     return style;
   };
 
-  const fetchSlackStatus = async () => {
+  async function fetchSlackStatus() {
     try {
-      let response = await fetch(
+      const response = await fetch(
         `https://slack.com/api/users.profile.get` +
           `?token=${SLACK_BOT_TOKEN}` +
           `&user=${SLACK_USER_ID}`,
       );
-      let responseJson = await response.json();
-      setDebugText(responseJson.profile.status_text);
+      const responseJson = await response.json();
+      const statusText = responseJson.profile.status_text;
+      setSelected(Status.Custom);
+      setCustomText(statusText);
     } catch (error) {
       console.error(error);
     }
-  };
+  }
 
   return (
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
-        <TouchableOpacity onPress={async () => fetchSlackStatus()}>
+        {/* <TouchableOpacity onPress={async () => fetchSlackStatus()}>
           <Text style={{padding: 24}}>{debugText || 'debug text (none)'}</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}>
@@ -110,10 +113,25 @@ function App(): React.ReactFragment {
               <View>
                 <View style={styles.syncSlackSwitch}>
                   <Text style={styles.sectionTitle}>Talk to Me</Text>
-                  <Text style={{color: 'white', top: 2}}>Sync with Slack</Text>
+                  <TouchableOpacity onPress={async () => fetchSlackStatus()}>
+                    <Text style={{color: 'white', padding: 2}}>
+                      Sync with Slack
+                    </Text>
+                  </TouchableOpacity>
                   <Switch
                     value={syncWithSlack}
-                    onValueChange={(val: boolean) => setSyncWithSlack(val)}
+                    onValueChange={(val: boolean) => {
+                      if (slackPoller) {
+                        clearInterval(slackPoller);
+                      }
+                      if (val) {
+                        const newPoller = setInterval(fetchSlackStatus, 10000);
+                        setSlackPoller(newPoller);
+                      } else {
+                        setSlackPoller(null);
+                      }
+                      setSyncWithSlack(val);
+                    }}
                     thumbColor="#F2F2F2"
                     trackColor={{
                       false: '#383838',
