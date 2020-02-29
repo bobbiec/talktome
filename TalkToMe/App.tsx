@@ -21,6 +21,12 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {SLACK_BOT_TOKEN, SLACK_USER_ID} from './secrets';
+import BleManager from 'react-native-ble-manager';
+import {stringToBytes} from 'convert-string';
+
+const DEVICE_MAC = 'B8:27:EB:AD:E8:94';
+const SERVICE_ID = '00000001-710e-4a5b-8d75-3e5b444b3c3f';
+const CHARACTERISTIC_ID = '00000003-710e-4a5b-8d75-3e5b444b3c3f';
 
 enum Status {
   Custom = 'Custom',
@@ -74,6 +80,29 @@ function App(): React.ReactFragment {
   const [debugText, setDebugText] = useState('Debug text');
   const [slackPoller, setSlackPoller] = useState(null);
 
+  BleManager.start().then(
+    () => {},
+    // BleManager.scan([], 5).then(setDebugText('BLE Manager started')),
+  );
+
+  async function setMessage(s: string) {
+    if (!s) {
+      return;
+    }
+    try {
+      await BleManager.connect(DEVICE_MAC);
+      const services = await BleManager.retrieveServices(DEVICE_MAC);
+      await BleManager.write(
+        DEVICE_MAC,
+        services.characteristics[3].service,
+        services.characteristics[3].characteristic,
+        stringToBytes(s),
+      );
+    } catch (e) {
+      setDebugText(e);
+    }
+  }
+
   const highlightIfSelected = (curr: Status) => {
     let style = styles.statusButton;
     if (selected == curr) {
@@ -92,7 +121,10 @@ function App(): React.ReactFragment {
       const responseJson = await response.json();
       const statusText = responseJson.profile.status_text;
       setSelected(Status.Custom);
-      setCustomText(statusText);
+      if (customText !== statusText) {
+        setCustomText(statusText);
+        setMessage(customText);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -102,7 +134,7 @@ function App(): React.ReactFragment {
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView>
-        {/* <TouchableOpacity onPress={async () => fetchSlackStatus()}>
+        {/* <TouchableOpacity onPress={async () => setMessage('debuggy')}>
           <Text style={{padding: 24}}>{debugText || 'debug text (none)'}</Text>
         </TouchableOpacity> */}
         <ScrollView
@@ -125,7 +157,7 @@ function App(): React.ReactFragment {
                         clearInterval(slackPoller);
                       }
                       if (val) {
-                        const newPoller = setInterval(fetchSlackStatus, 10000);
+                        const newPoller = setInterval(fetchSlackStatus, 6000);
                         setSlackPoller(newPoller);
                       } else {
                         setSlackPoller(null);
@@ -158,7 +190,11 @@ function App(): React.ReactFragment {
             </View>
           </View>
           <View style={styles.sectionContainer}>
-            <TouchableOpacity onPress={() => setSelected(Status.Custom)}>
+            <TouchableOpacity
+              onPress={() => {
+                setSelected(Status.Custom);
+                setMessage(customText);
+              }}>
               <LinearGradientBackgroundImage
                 imageSource={statusImages[Status.Custom]}>
                 <Text style={highlightIfSelected(Status.Custom)}>
@@ -172,6 +208,7 @@ function App(): React.ReactFragment {
                   autoFocus
                   style={styles.customStatusInput}
                   onChangeText={text => setCustomText(text)}
+                  onSubmitEditing={nativeEvent => setMessage(nativeEvent.text)}
                   value={customText}
                   placeholder="Your text here"
                   placeholderTextColor="#b4b4b4"
@@ -183,7 +220,10 @@ function App(): React.ReactFragment {
               status == Status.Custom ? null : (
                 <TouchableOpacity
                   key={status}
-                  onPress={() => setSelected(status)}>
+                  onPress={() => {
+                    setSelected(status);
+                    setMessage(Status[status]);
+                  }}>
                   <LinearGradientBackgroundImage
                     imageSource={statusImages[Status[status]]}>
                     <Text style={highlightIfSelected(status)}>
