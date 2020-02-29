@@ -1,5 +1,5 @@
 /**
- * Sample React Native App
+ * Talk to Me React Native App
  * https://github.com/facebook/react-native
  *
  * @format
@@ -94,6 +94,7 @@ function App(): React.ReactFragment {
       const services = await BleManager.retrieveServices(DEVICE_MAC);
       await BleManager.write(
         DEVICE_MAC,
+        // string literals don't work for some reason
         services.characteristics[3].service,
         services.characteristics[3].characteristic,
         stringToBytes(s),
