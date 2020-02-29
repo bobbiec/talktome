@@ -22,6 +22,8 @@ SOFTWARE.
 """
 
 import dbus
+import subprocess
+import os
 
 from advertisement import Advertisement
 from service import Application, Service, Characteristic, Descriptor
@@ -133,20 +135,12 @@ class UnitCharacteristic(Characteristic):
         self.add_descriptor(UnitDescriptor(self))
 
     def WriteValue(self, value, options):
-        val = str(value[0]).upper()
-        if val == "C":
-            self.service.set_farenheit(False)
-        elif val == "F":
-            self.service.set_farenheit(True)
+        val = ''.join(str(c) for c in value)
+        print('Got value {}'.format(val)))
+        subprocess.check_output('python', '../python/my-quotes.py', val)
 
     def ReadValue(self, options):
-        value = []
-
-        if self.service.is_farenheit(): val = "F"
-        else: val = "C"
-        value.append(dbus.Byte(val.encode()))
-
-        return value
+        return []
 
 class UnitDescriptor(Descriptor):
     UNIT_DESCRIPTOR_UUID = "2901"
