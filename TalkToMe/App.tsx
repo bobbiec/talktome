@@ -5,8 +5,11 @@
  * @format
  */
 
-import React, {useState} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
+  Alert,
+  Animated,
+  Easing,
   SafeAreaView,
   StyleSheet,
   ScrollView,
@@ -16,13 +19,20 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Button,
   ImageBackground,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {SLACK_BOT_TOKEN, SLACK_USER_ID} from './secrets';
 import BleManager from 'react-native-ble-manager';
 import {stringToBytes} from 'convert-string';
+import AsyncStorage, {
+  useAsyncStorage,
+} from '@react-native-community/async-storage';
+import {Button, Divider} from 'react-native-elements';
+import {Icon} from 'react-native-elements';
+// import { Icon } from 'react-native-vector-icons/FontAwesome';
+
+const sendMessages = false;
 
 const DEVICE_MAC = 'B8:27:EB:AD:E8:94';
 const SERVICE_ID = '00000001-710e-4a5b-8d75-3e5b444b3c3f';
@@ -44,7 +54,7 @@ const statusImages = {
   [Status.WorkingRemotely]: require('./media/workingremotely.png'),
 };
 
-const statusColors = {
+const defaultStatusColors = {
   [Status.Custom]: 'rgba(129, 127, 224, 0.3)',
   [Status.Available]: 'rgba(98, 176, 115, 0.3)',
   [Status.Busy]: 'rgba(253, 99, 107, 0.3)',
@@ -58,11 +68,11 @@ interface LGBIProps {
 }
 
 function LinearGradientBackgroundImage(props: LGBIProps) {
-  const {imageSource, children} = props;
+  const {imageSource, children, style} = props;
   return (
     <LinearGradient
       colors={['#000000', '#898989']}
-      style={{borderRadius: 12, margin: 12}}>
+      style={{borderRadius: 12, margin: 12, ...style}}>
       <ImageBackground
         source={imageSource}
         style={{}}
@@ -79,6 +89,37 @@ function App(): React.ReactFragment {
   const [syncWithSlack, setSyncWithSlack] = useState(false);
   const [debugText, setDebugText] = useState('Debug text');
   const [slackPoller, setSlackPoller] = useState(null);
+  const [statusColors, setStatusColors] = useState(defaultStatusColors);
+  const [editing, setEditing] = useState(false);
+  const buttonPosition = useRef(new Animated.Value(0)).current;
+
+  const {getItem, setItem} = useAsyncStorage('colors');
+
+  async function changeColor(update: object) {
+    const newColors = {...statusColors, ...update};
+    await setItem(JSON.stringify(newColors));
+    setStatusColors(newColors);
+  }
+
+  async function getColorsFromStorage() {
+    const colors = JSON.parse(await getItem());
+    if (colors) {
+      await changeColor(colors);
+    }
+  }
+
+  useEffect(() => {
+    getColorsFromStorage();
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(buttonPosition, {
+      toValue: editing ? -50 : 0,
+      duration: 160,
+      easing: Easing.elastic(1.5),
+      useNativeDriver: true,
+    }).start();
+  }, [editing]);
 
   BleManager.start().then(
     () => {},
@@ -86,7 +127,7 @@ function App(): React.ReactFragment {
   );
 
   async function setMessage(s: string) {
-    if (!s) {
+    if (!s || !sendMessages) {
       return;
     }
     try {
@@ -134,50 +175,58 @@ function App(): React.ReactFragment {
   return (
     <>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        {/* <TouchableOpacity onPress={async () => setMessage('debuggy')}>
+      <SafeAreaView style={{flex: 1}}>
+        <TouchableOpacity
+          onPress={async () => {
+            const [r, g, b, a] = [
+              Math.random() * 255,
+              Math.random() * 255,
+              Math.random() * 255,
+              Math.random(),
+            ];
+            await changeColor({
+              [Status.Available]: `rgba(${r}, ${g}, ${b}, ${a})`,
+            });
+            setDebugText(`set to ${r} ${g} ${b} ${a}`);
+          }}>
           <Text style={{padding: 24}}>{debugText || 'debug text (none)'}</Text>
-        </TouchableOpacity> */}
+        </TouchableOpacity>
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}>
           <View style={styles.sectionContainer}>
-            <View>
-              <View>
-                <View style={styles.syncSlackSwitch}>
-                  <Text style={styles.sectionTitle}>Talk to Me</Text>
-                  <TouchableOpacity onPress={async () => fetchSlackStatus()}>
-                    <Text style={{color: 'white', padding: 2}}>
-                      Sync with Slack
-                    </Text>
-                  </TouchableOpacity>
-                  <Switch
-                    value={syncWithSlack}
-                    onValueChange={(val: boolean) => {
-                      if (slackPoller) {
-                        clearInterval(slackPoller);
-                      }
-                      if (val) {
-                        const newPoller = setInterval(fetchSlackStatus, 6000);
-                        setSlackPoller(newPoller);
-                      } else {
-                        setSlackPoller(null);
-                      }
-                      setSyncWithSlack(val);
-                    }}
-                    thumbColor="#F2F2F2"
-                    trackColor={{
-                      false: '#383838',
-                      true: '#7a1d7a',
-                    }}
-                    style={{paddingLeft: 8}}
-                  />
-                </View>
-                {/* <Button title="Pull from Slack" /> */}
-              </View>
+            <View style={styles.flexRow}>
+              <Text style={styles.sectionTitle}>Talk to Me</Text>
+              <TouchableOpacity onPress={async () => fetchSlackStatus()}>
+                <Text style={{color: 'white', padding: 2}}>
+                  Sync with Slack
+                </Text>
+              </TouchableOpacity>
+              <Switch
+                value={syncWithSlack}
+                onValueChange={(val: boolean) => {
+                  if (slackPoller) {
+                    clearInterval(slackPoller);
+                  }
+                  if (val) {
+                    const newPoller = setInterval(fetchSlackStatus, 6000);
+                    setSlackPoller(newPoller);
+                  } else {
+                    setSlackPoller(null);
+                  }
+                  setSyncWithSlack(val);
+                }}
+                thumbColor="#F2F2F2"
+                trackColor={{
+                  false: '#383838',
+                  true: '#7a1d7a',
+                }}
+                style={{paddingLeft: 8}}
+              />
             </View>
           </View>
           <View style={styles.sectionContainer}>
+            {/* current status*/}
             <View>
               <Text style={styles.statusTitle}>
                 <Text
@@ -187,53 +236,111 @@ function App(): React.ReactFragment {
                   ⬤{'  '}
                 </Text>
                 {selected == Status.Custom ? customText : Status[selected]}
+                {'\n'}
               </Text>
             </View>
           </View>
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              onPress={() => {
-                setSelected(Status.Custom);
-                setMessage(customText);
-              }}>
-              <LinearGradientBackgroundImage
-                imageSource={statusImages[Status.Custom]}>
-                <Text style={highlightIfSelected(Status.Custom)}>
-                  Custom Status
-                </Text>
-              </LinearGradientBackgroundImage>
-
-              {// TODO: move this to replace the top indicator when custom
-              selected == Status.Custom && (
-                <TextInput
-                  autoFocus
-                  style={styles.customStatusInput}
-                  onChangeText={text => setCustomText(text)}
-                  onSubmitEditing={nativeEvent => setMessage(nativeEvent.text)}
-                  value={customText}
-                  placeholder="Your text here"
-                  placeholderTextColor="#b4b4b4"
-                  blurOnSubmit={true}
-                />
-              )}
-            </TouchableOpacity>
-            {Object.keys(Status).map((status: Status) =>
-              status == Status.Custom ? null : (
+          <Divider />
+          <View>
+            <View style={styles.sectionContainer}>
+              <View style={styles.flexRow}>
+                <Text style={styles.sectionTitle}>Update Status</Text>
                 <TouchableOpacity
-                  key={status}
-                  onPress={() => {
-                    setSelected(status);
-                    setMessage(Status[status]);
+                  onPress={async () => {
+                    setEditing(!editing);
                   }}>
-                  <LinearGradientBackgroundImage
-                    imageSource={statusImages[Status[status]]}>
-                    <Text style={highlightIfSelected(status)}>
-                      {Status[status]}
-                    </Text>
-                  </LinearGradientBackgroundImage>
+                  <Text style={{color: 'white', padding: 2}}>
+                    {editing ? 'Save' : 'Edit'}
+                  </Text>
                 </TouchableOpacity>
-              ),
-            )}
+              </View>
+            </View>
+            <View style={styles.sectionContainer}>
+              {/* list of possible status*/}
+              <TouchableOpacity
+                onPress={() => {
+                  setSelected(Status.Custom);
+                  setMessage(customText);
+                }}>
+                <LinearGradientBackgroundImage
+                  imageSource={statusImages[Status.Custom]}>
+                  <Text style={highlightIfSelected(Status.Custom)}>
+                    Custom Status
+                  </Text>
+                </LinearGradientBackgroundImage>
+
+                {// TODO: move this to replace the top indicator when custom
+                selected == Status.Custom && (
+                  <TextInput
+                    autoFocus
+                    style={styles.customStatusInput}
+                    onChangeText={text => setCustomText(text)}
+                    onSubmitEditing={nativeEvent =>
+                      setMessage(nativeEvent.text)
+                    }
+                    value={customText}
+                    placeholder="Your text here"
+                    placeholderTextColor="#b4b4b4"
+                    blurOnSubmit={true}
+                  />
+                )}
+              </TouchableOpacity>
+              {Object.keys(Status).map((status: Status) => {
+                if (status == Status.Custom) {
+                  return null;
+                }
+                return (
+                  <Animated.View key={status} style={styles.flexRow}>
+                    <TouchableOpacity
+                      style={[
+                        {width: '100%'},
+                        {transform: [{translateX: buttonPosition}]},
+                      ]}
+                      onPress={() => {
+                        setSelected(status);
+                        setMessage(Status[status]);
+                      }}>
+                      <LinearGradientBackgroundImage
+                        imageSource={statusImages[Status[status]]}>
+                        <Text style={highlightIfSelected(status)}>
+                          {Status[status]}
+                        </Text>
+                      </LinearGradientBackgroundImage>
+                    </TouchableOpacity>
+                    {editing && (
+                      <View style={{float: 'right'}}>
+                        <Icon
+                          name="delete-forever"
+                          size={50}
+                          color="#b04"
+                          underlayColor="#b37"
+                          onPress={() =>
+                            Alert.alert(
+                              null,
+                              'Are you sure you want to delete your Dash status' +
+                                ` ${Status[status]}?`,
+                              [
+                                {
+                                  text: "Don't Delete",
+                                  onPress: () => console.log('Cancel Pressed'),
+                                  style: 'cancel',
+                                },
+                                {
+                                  text: 'Delete',
+                                  onPress: () => console.log('OK Pressed'),
+                                },
+                              ],
+                              {cancelable: false},
+                            )
+                          }
+                          containerStyle={{paddingTop: 20, marginLeft: -40}}
+                        />
+                      </View>
+                    )}
+                  </Animated.View>
+                );
+              })}
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -280,7 +387,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: 'white',
   },
-  syncSlackSwitch: {
+  flexRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },

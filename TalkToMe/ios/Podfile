@@ -38,6 +38,8 @@ target 'TalkToMe' do
 
   pod 'react-native-ble-manager', :path => '../node_modules/react-native-ble-manager'
 
+  pod 'RNVectorIcons', :path => '../node_modules/react-native-vector-icons'
+
   target 'TalkToMeTests' do
     inherit! :search_paths
     # Pods for testing
