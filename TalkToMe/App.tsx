@@ -5,7 +5,7 @@
  * @format
  */
 
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, AppRegistry} from 'react';
 import {
   Alert,
   Animated,
@@ -20,6 +20,8 @@ import {
   TextInput,
   Switch,
   ImageBackground,
+  KeyboardAvoidingView,
+  FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {SLACK_BOT_TOKEN, SLACK_USER_ID} from './secrets';
@@ -28,8 +30,8 @@ import {stringToBytes} from 'convert-string';
 import AsyncStorage, {
   useAsyncStorage,
 } from '@react-native-community/async-storage';
-import {Button, Divider} from 'react-native-elements';
-import {Icon} from 'react-native-elements';
+import {Button, Divider, Icon, Overlay} from 'react-native-elements';
+// import {Icon} from 'react-native-elements';
 // import { Icon } from 'react-native-vector-icons/FontAwesome';
 
 const sendMessages = false;
@@ -91,6 +93,8 @@ function App(): React.ReactFragment {
   const [slackPoller, setSlackPoller] = useState(null);
   const [statusColors, setStatusColors] = useState(defaultStatusColors);
   const [editing, setEditing] = useState(false);
+  const [modal, setModal] = useState(false);
+
   const buttonPosition = useRef(new Animated.Value(0)).current;
 
   const {getItem, setItem} = useAsyncStorage('colors');
@@ -108,9 +112,10 @@ function App(): React.ReactFragment {
     }
   }
 
-  useEffect(() => {
-    getColorsFromStorage();
-  }, []);
+  // uncomment for custom colors
+  // useEffect(() => {
+  //   getColorsFromStorage();
+  // }, []);
 
   useEffect(() => {
     Animated.timing(buttonPosition, {
@@ -176,7 +181,7 @@ function App(): React.ReactFragment {
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={{flex: 1}}>
-        <TouchableOpacity
+        {/* <TouchableOpacity
           onPress={async () => {
             const [r, g, b, a] = [
               Math.random() * 255,
@@ -190,13 +195,18 @@ function App(): React.ReactFragment {
             setDebugText(`set to ${r} ${g} ${b} ${a}`);
           }}>
           <Text style={{padding: 24}}>{debugText || 'debug text (none)'}</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={styles.scrollView}>
           <View style={styles.sectionContainer}>
             <View style={styles.flexRow}>
-              <Text style={styles.sectionTitle}>Talk to Me</Text>
+              <TouchableOpacity
+                onPress={async () => setModal(true)}
+                style={styles.sectionTitle}>
+                <Text style={styles.sectionTitle}>Dash</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity onPress={async () => fetchSlackStatus()}>
                 <Text style={{color: 'white', padding: 2}}>
                   Sync with Slack
@@ -225,6 +235,88 @@ function App(): React.ReactFragment {
               />
             </View>
           </View>
+
+          <Overlay
+            isVisible={modal}
+            onBackdropPress={() => setModal(false)}
+            overlayStyle={{
+              flex: 1,
+              maxHeight: 512,
+              marginTop: 24,
+              backgroundColor: '#817fe0',
+            }}>
+            <KeyboardAvoidingView behavior="position" enabled>
+              <TextInput
+                autoFocus
+                style={{
+                  backgroundColor: '#5653b5',
+                  padding: 8,
+                  borderRadius: 4,
+                  marginBottom: 12,
+                }}
+                onChangeText={text => setCustomText(text)}
+                onSubmitEditing={nativeEvent => {
+                  setMessage(nativeEvent.text);
+                  setSelected(Status.Custom);
+                }}
+                value={customText}
+                placeholder="Write a custom status..."
+                placeholderTextColor="#d4d4d4"
+                blurOnSubmit={true}
+                returnKeyType={'done'}
+              />
+              <View>
+                <Text style={{fontWeight: 'bold', color: '#e4e4e4'}}>
+                  {' '}
+                  Recents:{' '}
+                </Text>
+                <View style={{paddingLeft: 8, paddingRight: 8}}>
+                  <FlatList
+                    data={[
+                      {
+                        message: 'Going for a short walk',
+                        enabled: false,
+                      },
+                      {
+                        message: 'In the lounge',
+                        enabled: false,
+                      },
+                      {
+                        message: 'Taking a phone call',
+                        enabled: true,
+                      },
+                    ]}
+                    renderItem={({item}) => (
+                      <>
+                        <Text
+                          style={{
+                            paddingTop: 8,
+                            paddingBottom: 8,
+                            color: '#e4e4e4',
+                          }}>
+                          {item.message}
+                        </Text>
+                        <Icon
+                          name="home"
+                          // size={50}
+                          iconStyle={{
+                            borderColor: '#5653b5',
+                            position: 'absolute',
+                            right: 0,
+                            bottom: 4,
+                          }}
+                          color={item.enabled ? '#e4e4e4' : '#5653b5'}
+                        />
+                        <Divider />
+                      </>
+                    )}
+                    keyExtractor={item => item.message}
+                  />
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Overlay>
+
           <View style={styles.sectionContainer}>
             {/* current status*/}
             <View>
@@ -249,15 +341,21 @@ function App(): React.ReactFragment {
                   onPress={async () => {
                     setEditing(!editing);
                   }}>
-                  <Text style={{color: 'white', padding: 2}}>
-                    {editing ? 'Save' : 'Edit'}
+                  <Text
+                    style={{
+                      color: 'white',
+                      padding: 2,
+                      fontSize: 24,
+                      fontWeight: 'bold',
+                    }}>
+                    +{/* {editing ? 'Save' : 'Edit'} */}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
             <View style={styles.sectionContainer}>
               {/* list of possible status*/}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={() => {
                   setSelected(Status.Custom);
                   setMessage(customText);
@@ -283,8 +381,8 @@ function App(): React.ReactFragment {
                     placeholderTextColor="#b4b4b4"
                     blurOnSubmit={true}
                   />
-                )}
-              </TouchableOpacity>
+                )} */}
+              {/* </TouchableOpacity> */}
               {Object.keys(Status).map((status: Status) => {
                 if (status == Status.Custom) {
                   return null;
