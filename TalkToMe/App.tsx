@@ -94,6 +94,7 @@ function App(): React.ReactFragment {
   const [statusColors, setStatusColors] = useState(defaultStatusColors);
   const [editing, setEditing] = useState(false);
   const [modal, setModal] = useState(false);
+  const [calendarMode, setCalendarMode] = useState(false);
 
   const buttonPosition = useRef(new Animated.Value(0)).current;
 
@@ -209,7 +210,7 @@ function App(): React.ReactFragment {
 
               <TouchableOpacity onPress={async () => fetchSlackStatus()}>
                 <Text style={{color: 'white', padding: 2}}>
-                  Sync with Slack
+                  Sync with {calendarMode ? 'Calendar' : 'Slack'}
                 </Text>
               </TouchableOpacity>
               <Switch
@@ -236,126 +237,248 @@ function App(): React.ReactFragment {
             </View>
           </View>
 
-          <Overlay
-            isVisible={modal}
-            onBackdropPress={() => setModal(false)}
-            overlayStyle={{
-              flex: 1,
-              maxHeight: 512,
-              marginTop: 24,
-              backgroundColor: '#817fe0',
-            }}>
-            <KeyboardAvoidingView behavior="position" enabled>
-              <TextInput
-                autoFocus
+          {calendarMode ? (
+            // Fake a calendar
+            <ScrollView
+              contentInsetAdjustmentBehavior="automatic"
+              style={{...styles.scrollView, marginTop: 24, height: 510}}>
+              <View
                 style={{
-                  backgroundColor: '#5653b5',
-                  padding: 8,
-                  borderRadius: 4,
-                  marginBottom: 12,
-                }}
-                onChangeText={text => setCustomText(text)}
-                onSubmitEditing={nativeEvent => {
-                  setMessage(nativeEvent.text);
-                  setSelected(Status.Custom);
-                }}
-                value={customText}
-                placeholder="Write a custom status..."
-                placeholderTextColor="#d4d4d4"
-                blurOnSubmit={true}
-                returnKeyType={'done'}
-              />
-              <View>
-                <Text style={{fontWeight: 'bold', color: '#e4e4e4'}}>
-                  {' '}
-                  Recents:{' '}
-                </Text>
-                <View style={{paddingLeft: 8, paddingRight: 8}}>
-                  <FlatList
-                    data={[
-                      {
-                        message: 'Going for a short walk',
-                        enabled: false,
-                      },
-                      {
-                        message: 'In the lounge',
-                        enabled: false,
-                      },
-                      {
-                        message: 'Taking a phone call',
-                        enabled: true,
-                      },
-                    ]}
-                    renderItem={({item}) => (
-                      <>
-                        <Text
-                          style={{
-                            paddingTop: 8,
-                            paddingBottom: 8,
-                            color: '#e4e4e4',
-                          }}>
-                          {item.message}
-                        </Text>
-                        <Icon
-                          name="home"
-                          // size={50}
-                          iconStyle={{
-                            borderColor: '#5653b5',
-                            position: 'absolute',
-                            right: 0,
-                            bottom: 4,
-                          }}
-                          color={item.enabled ? '#e4e4e4' : '#5653b5'}
-                        />
-                        <Divider />
-                      </>
+                  paddingLeft: 8,
+                  paddingRight: 8,
+                  flexDirection: 'column',
+                  flex: 1,
+                }}>
+                {[
+                  {
+                    time: '8 AM',
+                  },
+                  {
+                    time: '9 AM',
+                  },
+                  {
+                    time: '10 AM',
+                  },
+                  {
+                    time: '11 AM',
+                    status: Status.InMeeting,
+                    message: 'Meeting with Craig',
+                    enabled: false,
+                  },
+                  {
+                    time: '12 PM',
+                  },
+                  {
+                    time: '1 PM',
+                    status: Status.InMeeting,
+                    message: 'Client Meeting',
+                    enabled: true,
+                  },
+                  {
+                    time: '2 PM',
+                    status: Status.Available,
+                    customStyle: {
+                      position: 'absolute',
+                      top: 32,
+                      paddingTop: 8,
+                      left: 64,
+                      height: 160,
+                    },
+                  },
+                  {
+                    time: '3 PM',
+                  },
+                  {
+                    time: '4 PM',
+                  },
+                  {
+                    time: '5 PM',
+                  },
+                ].map(item => (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'flex-start',
+                      backgroundColor: undefined,
+                      minHeight: 64,
+                      borderColor: '#a4a4a4',
+                      borderBottomWidth: 1,
+                    }}>
+                    <Text
+                      style={{
+                        padding: 8,
+                        color: '#a4a4a4',
+                        backgroundColor: '#111',
+                        width: 64,
+                      }}>
+                      {item.time}
+                    </Text>
+                    <Text
+                      style={{
+                        padding: 8,
+                        color: '#e4e4e4',
+                        width: '35%',
+                        backgroundColor: statusColors[item.status],
+                        borderRadius: 8,
+                        marginRight: 8,
+                        ...item.customStyle,
+                      }}>
+                      {item.status && 'ⓧ'} {item.status}
+                    </Text>
+                    {item.status && !item.customStyle && (
+                      <Icon
+                        name="caret-down"
+                        type="font-awesome"
+                        iconStyle={{
+                          borderColor: '#5653b5',
+                          position: 'absolute',
+                          right: 16,
+                          top: 40,
+                        }}
+                        color="#c4c4c4"
+                      />
                     )}
-                    keyExtractor={item => item.message}
+                    <Text
+                      style={{
+                        padding: 8,
+                        color: '#e4e4e4',
+                        flex: 1,
+                        backgroundColor: item.message ? '#3065b3' : undefined,
+                        borderRadius: 8,
+                        marginRight: 8,
+                      }}>
+                      {item.message}
+                    </Text>
+
+                    <Divider backgroundColor="white" />
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          ) : (
+            <>
+              <Overlay
+                isVisible={modal}
+                onBackdropPress={() => setModal(false)}
+                overlayStyle={{
+                  flex: 1,
+                  maxHeight: 512,
+                  marginTop: 24,
+                  backgroundColor: '#817fe0',
+                }}>
+                <KeyboardAvoidingView behavior="position" enabled>
+                  <TextInput
+                    autoFocus
+                    style={{
+                      backgroundColor: '#5653b5',
+                      padding: 8,
+                      borderRadius: 4,
+                      marginBottom: 12,
+                    }}
+                    onChangeText={text => setCustomText(text)}
+                    onSubmitEditing={nativeEvent => {
+                      setMessage(nativeEvent.text);
+                      setSelected(Status.Custom);
+                    }}
+                    value={customText}
+                    placeholder="Write a custom status..."
+                    placeholderTextColor="#d4d4d4"
+                    blurOnSubmit={true}
+                    returnKeyType={'done'}
                   />
+                  <View>
+                    <Text style={{fontWeight: 'bold', color: '#e4e4e4'}}>
+                      {' '}
+                      Recents:{' '}
+                    </Text>
+                    <View style={{paddingLeft: 8, paddingRight: 8}}>
+                      <FlatList
+                        data={[
+                          {
+                            message: 'Going for a short walk',
+                            enabled: false,
+                          },
+                          {
+                            message: 'In the lounge',
+                            enabled: false,
+                          },
+                          {
+                            message: 'Taking a phone call',
+                            enabled: true,
+                          },
+                        ]}
+                        renderItem={({item}) => (
+                          <>
+                            <Text
+                              style={{
+                                paddingTop: 8,
+                                paddingBottom: 8,
+                                color: '#e4e4e4',
+                              }}>
+                              {item.message}
+                            </Text>
+                            <Icon
+                              name="home"
+                              iconStyle={{
+                                borderColor: '#5653b5',
+                                position: 'absolute',
+                                right: 0,
+                                bottom: 4,
+                              }}
+                              color={item.enabled ? '#e4e4e4' : '#5653b5'}
+                            />
+                            <Divider />
+                          </>
+                        )}
+                        keyExtractor={item => item.message}
+                      />
+                    </View>
+                  </View>
+                </KeyboardAvoidingView>
+              </Overlay>
+
+              <View style={styles.sectionContainer}>
+                {/* current status*/}
+                <View>
+                  <Text style={styles.statusTitle}>
+                    <Text
+                      style={{
+                        color: statusColors[Status[selected]].replace(
+                          '0.3',
+                          '1.0',
+                        ),
+                      }}>
+                      ⬤{'  '}
+                    </Text>
+                    {selected == Status.Custom ? customText : Status[selected]}
+                    {'\n'}
+                  </Text>
                 </View>
               </View>
-            </KeyboardAvoidingView>
-          </Overlay>
-
-          <View style={styles.sectionContainer}>
-            {/* current status*/}
-            <View>
-              <Text style={styles.statusTitle}>
-                <Text
-                  style={{
-                    color: statusColors[Status[selected]].replace('0.3', '1.0'),
-                  }}>
-                  ⬤{'  '}
-                </Text>
-                {selected == Status.Custom ? customText : Status[selected]}
-                {'\n'}
-              </Text>
-            </View>
-          </View>
-          <Divider />
-          <View>
-            <View style={styles.sectionContainer}>
-              <View style={styles.flexRow}>
-                <Text style={styles.sectionTitle}>Update Status</Text>
-                <TouchableOpacity
-                  onPress={async () => {
-                    setEditing(!editing);
-                  }}>
-                  <Text
-                    style={{
-                      color: 'white',
-                      padding: 2,
-                      fontSize: 24,
-                      fontWeight: 'bold',
-                    }}>
-                    +{/* {editing ? 'Save' : 'Edit'} */}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-            <View style={styles.sectionContainer}>
-              {/* list of possible status*/}
-              {/* <TouchableOpacity
+              <Divider />
+              <View>
+                <View style={styles.sectionContainer}>
+                  <View style={styles.flexRow}>
+                    <Text style={styles.sectionTitle}>Update Status</Text>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        setEditing(!editing);
+                      }}>
+                      <Text
+                        style={{
+                          color: 'white',
+                          padding: 2,
+                          fontSize: 24,
+                          fontWeight: 'bold',
+                        }}>
+                        +{/* {editing ? 'Save' : 'Edit'} */}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.sectionContainer}>
+                  {/* list of possible status*/}
+                  {/* <TouchableOpacity
                 onPress={() => {
                   setSelected(Status.Custom);
                   setMessage(customText);
@@ -382,62 +505,90 @@ function App(): React.ReactFragment {
                     blurOnSubmit={true}
                   />
                 )} */}
-              {/* </TouchableOpacity> */}
-              {Object.keys(Status).map((status: Status) => {
-                if (status == Status.Custom) {
-                  return null;
-                }
-                return (
-                  <Animated.View key={status} style={styles.flexRow}>
-                    <TouchableOpacity
-                      style={[
-                        {width: '100%'},
-                        {transform: [{translateX: buttonPosition}]},
-                      ]}
-                      onPress={() => {
-                        setSelected(status);
-                        setMessage(Status[status]);
-                      }}>
-                      <LinearGradientBackgroundImage
-                        imageSource={statusImages[Status[status]]}>
-                        <Text style={highlightIfSelected(status)}>
-                          {Status[status]}
-                        </Text>
-                      </LinearGradientBackgroundImage>
-                    </TouchableOpacity>
-                    {editing && (
-                      <View style={{float: 'right'}}>
-                        <Icon
-                          name="delete-forever"
-                          size={50}
-                          color="#b04"
-                          underlayColor="#b37"
-                          onPress={() =>
-                            Alert.alert(
-                              null,
-                              'Are you sure you want to delete your Dash status' +
-                                ` ${Status[status]}?`,
-                              [
-                                {
-                                  text: "Don't Delete",
-                                  onPress: () => console.log('Cancel Pressed'),
-                                  style: 'cancel',
-                                },
-                                {
-                                  text: 'Delete',
-                                  onPress: () => console.log('OK Pressed'),
-                                },
-                              ],
-                              {cancelable: false},
-                            )
-                          }
-                          containerStyle={{paddingTop: 20, marginLeft: -40}}
-                        />
-                      </View>
-                    )}
-                  </Animated.View>
-                );
-              })}
+                  {/* </TouchableOpacity> */}
+                  {Object.keys(Status).map((status: Status) => {
+                    if (status == Status.Custom) {
+                      return null;
+                    }
+                    return (
+                      <Animated.View key={status} style={styles.flexRow}>
+                        <TouchableOpacity
+                          style={[
+                            {width: '100%'},
+                            {transform: [{translateX: buttonPosition}]},
+                          ]}
+                          onPress={() => {
+                            setSelected(status);
+                            setMessage(Status[status]);
+                          }}>
+                          <LinearGradientBackgroundImage
+                            imageSource={statusImages[Status[status]]}>
+                            <Text style={highlightIfSelected(status)}>
+                              {Status[status]}
+                            </Text>
+                          </LinearGradientBackgroundImage>
+                        </TouchableOpacity>
+                        {editing && (
+                          <View style={{float: 'right'}}>
+                            <Icon
+                              name="delete-forever"
+                              size={50}
+                              color="#b04"
+                              underlayColor="#b37"
+                              onPress={() =>
+                                Alert.alert(
+                                  null,
+                                  'Are you sure you want to delete your Dash status' +
+                                    ` ${Status[status]}?`,
+                                  [
+                                    {
+                                      text: "Don't Delete",
+                                      onPress: () =>
+                                        console.log('Cancel Pressed'),
+                                      style: 'cancel',
+                                    },
+                                    {
+                                      text: 'Delete',
+                                      onPress: () => console.log('OK Pressed'),
+                                    },
+                                  ],
+                                  {cancelable: false},
+                                )
+                              }
+                              containerStyle={{paddingTop: 20, marginLeft: -40}}
+                            />
+                          </View>
+                        )}
+                      </Animated.View>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          )}
+          <View style={styles.sectionContainer}>
+            <View style={styles.flexRow}>
+              <TouchableOpacity
+                onPress={async () => setCalendarMode(false)}
+                style={styles.sectionTitle}>
+                <Text
+                  style={{
+                    ...styles.bottomButton,
+                    backgroundColor: calendarMode ? '#525252' : '#969696',
+                  }}>
+                  Dash
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={async () => setCalendarMode(true)}>
+                <Text
+                  style={{
+                    ...styles.bottomButton,
+                    backgroundColor: calendarMode ? '#969696' : '#525252',
+                  }}>
+                  Calendar
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
@@ -452,7 +603,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   sectionContainer: {
-    marginTop: 32,
+    marginTop: 24,
     paddingHorizontal: 24,
   },
   sectionTitle: {
@@ -460,6 +611,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: 'white',
     marginRight: 'auto',
+  },
+  bottomButton: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: 'white',
+    marginLeft: 12,
+    marginRight: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   statusTitle: {
     fontSize: 24,
